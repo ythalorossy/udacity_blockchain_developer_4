@@ -1,0 +1,202 @@
+extends layout
+
+block content
+  h1= title
+  p Welcome to #{title}
+
+  h2 1. Web API post endpoint validates request with JSON response.
+
+  a(href='http://localhost:8000/requestValidation') http://localhost:8000/requestValidation
+
+  ul
+    li Response should contain message details, request timestamp, and time remaining for validation window.
+    li User obtains a response in JSON format with a message to sign.
+    li Message format = [walletAddress]:[timeStamp]:starRegistry
+    li The request must be configured with a limited validation window of five minutes.
+    li When re-submitting within validation window, validation window should reduce until it expires.
+
+
+  h3 cURL Request
+
+  pre
+    | curl -X "POST" "http://localhost:8000/requestValidation" \
+    |  -H 'Content-Type: application/json; charset=utf-8' \
+    |  -d $'{
+    |   "address": "142BDCeSGbXjWKaAnYXbMpZ6sbrSAo3DpZ"
+    |  }'
+
+  h3 Example: JSON response
+  p Your application will provide a JSON response to users. Here is an example of this response.
+  pre 
+    | {
+    |  "address": "142BDCeSGbXjWKaAnYXbMpZ6sbrSAo3DpZ",
+    |  "requestTimeStamp": "1532296090",
+    |  "message": "142BDCeSGbXjWKaAnYXbMpZ6sbrSAo3DpZ:1532296090:starRegistry",
+    |  "validationWindow": 300
+    | }
+
+
+  h2 2. Web API post endpoint validates message signature with JSON response.
+
+  a(href='http://localhost:8000/message-signature/validate') http://localhost:8000/message-signature/validate
+
+  ul
+    li Web API post endpoint validates message signature with JSON response.
+    li Upon validation, the user is granted access to register a single star.
+
+  h3 cURL Request
+  p Post validation with curl
+
+  pre
+    | curl -X "POST" "http://localhost:8000/message-signature/validate" \
+    | -H 'Content-Type: application/json; charset=utf-8' \
+    | -d $'{
+    |   "address": "142BDCeSGbXjWKaAnYXbMpZ6sbrSAo3DpZ",
+    |   "signature": "H6ZrGrF0Y4rMGBMRT2+hHWGbThTIyhBS0dNKQRov9Yg6GgXcHxtO9GJN4nwD2yNXpnXHTWU9i+qdw5vpsooryLU="
+    | }'
+
+  h3 Example: Response JSON
+  p Your application will provide a JSON response to users. Here is an example of this response.
+  pre
+    | {
+    |   "registerStar": true,
+    |   "status": {
+    |     "address": "142BDCeSGbXjWKaAnYXbMpZ6sbrSAo3DpZ",
+    |     "requestTimeStamp": "1532296090",
+    |     "message": "142BDCeSGbXjWKaAnYXbMpZ6sbrSAo3DpZ:1532296090:starRegistry",
+    |     "validationWindow": 193,
+    |     "messageSignature": "valid"
+    |   }
+    | }
+
+
+  h2 3. Star registration Web API Endpoint with JSON response.
+
+  a(href='http://localhost:8000/block') http://localhost:8000/block
+
+  ul
+    li Star object and properties are stored within the body of the block.
+    li Star properties include the coordinates with encoded story.
+    li Star story supports ASCII text, limited to 250 words (500 bytes), and hex encoded.
+
+  h3 cURL Request
+  pre
+    | curl -X POST \
+    |   http://localhost:8000/block \
+    |   -H 'Content-Type: application/json' \
+    |   -H 'Postman-Token: dc92bb54-9ba1-4fd5-9dda-9b20eb14ebde' \
+    |   -H 'cache-control: no-cache' \
+    |   -d '{
+    |     "address": "1BwZEFa1ak18Hd3FRZyaXQYqegQRk5sHdT",
+    |     "star": {
+    |       "dec": "-26° 29'\'' 24.9",
+    |       "ra": "16h 29m 1.0s",
+    |       "story": "Star YRosslan"
+    |     }
+    |   }'
+
+  h3 JSON response
+  pre
+    | {
+    |   "hash": "b35ec2a8544b0ce46afc6989b37f4cceba8c79d6b991465c283d470fb44a5189",
+    |   "height": 22,
+    |   "body": {
+    |     "address": "19WHjX65C29d5AwqBhFHFEektFsMEn7Gfu",
+    |     "star": {
+    |     "dec": "-26° 29' 24.9",
+    |     "ra": "16h 29m 1.0s",
+    |     "story": "Found star using https://www.google.com/sky/"
+    |     }
+    |   },
+    |   "time": "1539915863",
+    |   "previousBlockHash": "c54439353c46f669b3830f4871b7d0aa6d07f5f293437875696e73482be96ecb",
+    |   "story": "466f756e642073746172207573696e672068747470733a2f2f7777772e676f6f676c652e636f6d2f736b792f"
+    | }
+
+  h2 4. Get star block by hash with JSON response.
+
+  a(href='http://localhost:8000/stars/hash:[HASH]') http://localhost:8000/stars/hash:[HASH]
+
+  p Response includes entire star block contents along with the addition of star story decoded to ascii.
+
+  h3 cURL Request
+
+  pre
+    | curl -X GET http://localhost:8000/start/hash:67985b995ee11e1c5b31a075971a71d71eac7b2ad8cc67ba989df7db0224772b
+
+  h3 JSON response
+
+  pre
+    | [{
+    |    "hash": "67985b995ee11e1c5b31a075971a71d71eac7b2ad8cc67ba989df7db0224772b",
+    |    "height": 0,
+    |    "body": "{address: '', star: {dec: '', ra: '', story: 'Genesis block'}}",
+    |    "time": "1539923020",
+    |    "previousBlockHash": ""
+    | }]
+
+  
+  h2 5. Get star block by wallet address (blockchain identity) with JSON response
+
+  a(href='http://localhost:8000/stars/address:[ADDRESS]') http://localhost:8000/stars/address:[ADDRESS]
+
+  p Response includes entire star block contents along with the addition of star story decoded to ascii.
+  p Multiple stars might be registered to a single blockchain identity.
+  p The response should support multiple star blocks.
+
+  h3 cURL Request
+
+  pre
+    | curl -X GET http://localhost:8000/start/address:1BwZEFa1ak18Hd3FRZyaXQYqegQRk5sHdT
+
+  h3 JSON response
+
+  pre
+    | [{
+    |    "hash": "59c3065fbaf94b2f77ec741c8c5d7efb76d41d1eb025afb7adef9a851365ac27",
+    |    "height": 1,
+    |    "body": {
+    |        "address": "1BwZEFa1ak18Hd3FRZyaXQYqegQRk5sHdT",
+    |        "star": {
+    |            "dec": "-26° 29' 24.9",
+    |            "ra": "16h 29m 1.0s",
+    |            "story": "Star YRosslan"
+    |        }
+    |    },
+    |    "time": "1539924686",
+    |    "previousBlockHash": "67985b995ee11e1c5b31a075971a71d71eac7b2ad8cc67ba989df7db0224772b",
+    |    "story": "537461722059526f73736c616e"
+    | }]
+
+
+  h2 6. Get star block by star block height with JSON response
+
+  a(href='http://localhost:8000/block/[HEIGHT]')  http://localhost:8000/block/[HEIGHT]
+
+  p Response includes entire star block contents along with the addition of star story decoded to ascii.
+  p Multiple stars might be registered to a single blockchain identity.
+  p The response should support multiple star blocks.
+
+  h3 cURL Request
+
+  pre
+    | curl -X GET http://localhost:8000/block/1
+
+  h3 JSON response
+
+  pre
+    | [{
+    |    "hash": "59c3065fbaf94b2f77ec741c8c5d7efb76d41d1eb025afb7adef9a851365ac27",
+    |    "height": 1,
+    |    "body": {
+    |        "address": "1BwZEFa1ak18Hd3FRZyaXQYqegQRk5sHdT",
+    |        "star": {
+    |            "dec": "-26° 29' 24.9",
+    |            "ra": "16h 29m 1.0s",
+    |            "story": "Star YRosslan"
+    |        }
+    |    },
+    |    "time": "1539924686",
+    |    "previousBlockHash": "67985b995ee11e1c5b31a075971a71d71eac7b2ad8cc67ba989df7db0224772b",
+    |    "story": "537461722059526f73736c616e"
+    | }]
