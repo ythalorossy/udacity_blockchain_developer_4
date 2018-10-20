@@ -41,6 +41,7 @@ router
                                     validationWindow: leftWindonTime,
                                     messageSignature: "valid"
                                 }));
+                                mempool.delete(body.address);
 
                             } else {
                                 userService.revoke(transaction.address);
@@ -49,24 +50,13 @@ router
                                     validationWindow: leftWindonTime,
                                     messageSignature: "invalid"
                                 }));
+                                mempool.delete(body.address);
                             }
 
-                            // const messageSignatureResponse =
-                            //     new MessageSignatureResponse(isValid, {
-                            //         address: transaction.address,
-                            //         requestTimeStamp: transaction.timestamp,
-                            //         message: transaction.message,
-                            //         validationWindow: leftWindonTime,
-                            //         messageSignature: isValid ? "valid" : "invalid"
-                            //     });
-
-                            //     mempool.delete(body.address);
-
-                            // res.status(200).json(messageSignatureResponse);
                         })
                         .catch(err => {
                             console.error(err);
-                            // mempool.delete(body.address);
+                            
                             res.status(500).json({ message: err });
                         });
                 

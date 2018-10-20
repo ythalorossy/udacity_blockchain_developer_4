@@ -11,7 +11,7 @@ const indexRouter = require('./routes/index');
 const requestValidationRouter = require('./routes/resquestValidationRouter');
 const messageSignatureRouter = require('./routes/messageSignatureRouter');
 const blockRouter = require('./routes/blockRouter');
-const starRouter = require('./routes/starRouter');
+const starsRouter = require('./routes/starsRouter');
 
 const app = express();
 
@@ -29,7 +29,7 @@ app.use('/', indexRouter);
 app.use('/requestValidation', requestValidationRouter);
 app.use('/message-signature', messageSignatureRouter);
 app.use('/block', blockRouter);
-app.use('/start', starRouter);
+app.use('/stars', starsRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

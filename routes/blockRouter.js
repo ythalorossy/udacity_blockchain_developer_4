@@ -56,7 +56,8 @@ router
             .then(() => {
 
                 const block = new Block(body);
-                block.story = stringService.toHex(body.star.story);
+
+                block.body.star.story = stringService.toHex(body.star.story);
 
                 return blockchainService.addBlock(block);
             })
@@ -81,8 +82,10 @@ router
         .get('/:height', (req, res) => {
 
             blockchainService.getBlock(req.params.height)
-            .then( blocks => {
-                res.json(blocks);
+            .then( block => {
+                block.body.star.storyDecoded = stringService.fromHex(block.body.star.story);
+                delete block.body.star.story
+                res.json(block);
             })
             .catch( err => {
 

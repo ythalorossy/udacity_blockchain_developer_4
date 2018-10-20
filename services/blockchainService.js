@@ -7,7 +7,16 @@ class Block {
   constructor(data) {
     this.hash = "";
     this.height = 0;
-    this.body = data;
+    this.body = {
+      address: data.address,
+      star: {
+        dec: data.star.dec, 
+        ra: data.star.ra,
+        mag: data.star.mag,
+        const: data.star.const,
+        story: data.star.story,
+      }
+    };
     this.time = 0;
     this.previousBlockHash = "";
   }
@@ -20,8 +29,10 @@ class BlockchainService {
     // Check if is necessary create a Genesis block
     this.getBlockHeight().then(height=> {
       if (height === 0) {
+
+        const block = new Block({address: '', star: {dec: '', ra: '', story: 'Genesis block'}});
         
-        this.addBlock(new Block("{address: '', star: {dec: '', ra: '', story: 'Genesis block'}}"))
+        this.addBlock(block)
           .then(block => console.log("Genesis block has been created"))
           .catch(err => console.log('Error creating Genesis block', err));
       }
@@ -130,18 +141,18 @@ class BlockchainService {
   getBlockByHash(hash) {
     return new Promise((resolve, reject) => {
 
-      const resultBlock = [];
+      let blockResult;
 
       db.createReadStream()
         .on('data', data => {
           let block = JSON.parse(data.value);
           if (block.hash === hash) {
-            resultBlock.push( block );
+            blockResult = block;
           }
         })
         .on('error', err => reject(err))
         .on('close', () => {
-          resolve(resultBlock);
+            resolve(blockResult);
         })
     })
   }
