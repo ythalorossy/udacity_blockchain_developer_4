@@ -11,64 +11,53 @@ const signatureService = new SignatureService();
 const userService = new UserService();
 
 router
-    .post('/validate', function (req, res, next) {
+    .post('/validate', async (req, res, next) => {
 
         const body = req.body;
-        
-        mempool.get(body.address)
-            .then(transaction => {
 
-                transaction = JSON.parse(transaction);
+        try {
+            const transaction = await mempool.get(body.address)
 
-                const currentTime = new Date().getTime();
+            const currentTime = new Date().getTime();
 
-                const leftWindonTime = Math.round((transaction.validationWindow - currentTime) / 1000)
+            const leftWindonTime = Math.round((transaction.validationWindow - currentTime) / 1000)
 
-                if (leftWindonTime) {
+            if (!leftWindonTime) {
+                mempool.delete(body.address);
+                const error = new Error('Needs resquest validation again. The window time is out.');
+                error.status = 403;
+                throw error;
+            }
 
-                    const messageSignature = new MessageSignature(transaction.message, body.address, body.signature);
+            const messageSignature = new MessageSignature(transaction.message, body.address, body.signature);
 
-                    signatureService.validate(messageSignature)
-                        .then( isValid => {
+            const isSignatureValid = await signatureService.validate(messageSignature)
 
-                            // Grant access to user register a star 
-                            if (isValid) {
-                                userService.grant(transaction.address);
-                                res.status(200).json(new MessageSignatureResponse(isValid, {
-                                    address: transaction.address,
-                                    requestTimeStamp: transaction.timestamp,
-                                    message: transaction.message,
-                                    validationWindow: leftWindonTime,
-                                    messageSignature: "valid"
-                                }));
-                                mempool.delete(body.address);
+            if (isSignatureValid) {
+                userService.grant(transaction.address);
+                res.status(200).json(new MessageSignatureResponse(isSignatureValid, {
+                    address: transaction.address,
+                    requestTimeStamp: transaction.timestamp,
+                    message: transaction.message,
+                    validationWindow: leftWindonTime,
+                    messageSignature: "valid"
+                }));
 
-                            } else {
-                                userService.revoke(transaction.address);
-                                res.status(200).json(new MessageSignatureResponse(isValid, {
-                                    address: body.address,
-                                    validationWindow: leftWindonTime,
-                                    messageSignature: "invalid"
-                                }));
-                                mempool.delete(body.address);
-                            }
+                mempool.delete(body.address);
 
-                        })
-                        .catch(err => {
-                            console.error(err);
-                            
-                            res.status(500).json({ message: err });
-                        });
-                
-                } else {
-                    mempool.delete(body.address);
-                    throw new Error('Window is out')
-                }
+            } else {
+                userService.revoke(transaction.address);
+                res.status(200).json(new MessageSignatureResponse(isSignatureValid, {
+                    address: body.address,
+                    validationWindow: leftWindonTime,
+                    messageSignature: "invalid"
+                }));
+            }
 
-            })
-            .catch ( err => {
-                res.json(new MessageSignatureResponse(false, { validationWindow: 0 }));
-            });
+        } catch (error) {
+
+            next(error)
+        } 
     });
 
 module.exports = router;

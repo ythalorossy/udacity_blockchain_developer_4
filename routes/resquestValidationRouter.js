@@ -8,46 +8,44 @@ const { Mempool } = require('../services/mempoolService')
 const mempool = new Mempool();
 
 router
-    .post('/', function (req, res) {
-
+    .post('/', async (req, res, next) => {
+        
         const body = req.body;
 
-        mempool.get(body.address)
-            .then(transaction => {
+        try {
+            const transaction = await mempool.get(body.address)
+    
+            const currentTime = new Date().getTime();
+    
+            if (currentTime <= transaction.validationWindow) {
+                leftWindonTime = Math.round((transaction.validationWindow - currentTime) / 1000);
 
-                transaction = JSON.parse(transaction);
+            } else {
+                mempool.delete(transaction.address);
+            }
 
-                const currentTime = new Date().getTime()
-                let leftWindonTime = 0;
+            res.json(new ValidationResponse(transaction.address, transaction.timestamp, transaction.message, leftWindonTime));
+            
+        } catch (error) {
 
-                // Check if the window ain't expired
-                if (currentTime <= transaction.validationWindow) {
-                    leftWindonTime = Math.round((transaction.validationWindow - currentTime) / 1000);
-                } else {
-                    mempool.delete(transaction.address);
-                }
+            if (error.status === 404) {
 
-                res.json(new ValidationResponse(transaction.address, transaction.timestamp, transaction.message, leftWindonTime));
-            })
-            .catch(err => {
+                const timestamp = new Date().getTime();
+                const address = body.address;
+                const message = `${address}:${timestamp}:starRegistry`;
+                const fiveMinutes = (60000 * 5); // 60s x 5 = 5min;
+                const validationWindow = timestamp + fiveMinutes;
 
-                if (err.type == 'NotFoundError') {
+                await mempool.add(address, { address, timestamp, message, validationWindow })
 
-                    const timestamp = new Date().getTime();
-                    const address = body.address;
-                    const message = `${address}:${timestamp}:starRegistry`;
-                    const fiveMinutes = (60000 * 5); // 60s x 5 = 5min;
-                    const validationWindow = timestamp + fiveMinutes;
+                res.json(new ValidationResponse(address, timestamp, message, fiveMinutes / 1000));
 
-                    mempool.add(address, { address, timestamp, message, validationWindow })
-                        .then(() => {
-                            res.json(new ValidationResponse(address, timestamp, message, fiveMinutes / 1000));
-                        });
+            } else {
+                
+                next(error)
+            }
+        }
 
-                } else {
-                    res.status(500).json(err);
-                }
-            })
     });
 
 module.exports = router;

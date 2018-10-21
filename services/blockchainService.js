@@ -1,7 +1,10 @@
 const SHA256 = require('crypto-js/sha256');
 const level = require('level');
-
 const db = level('./db-blockchain');
+
+const { StringService } = require('./stringService');
+
+const stringService = new StringService();
 
 class Block {
   constructor(data) {
@@ -25,75 +28,62 @@ class Block {
 class BlockchainService {
 
   constructor() {
+    this.checkIsHasGenesisBlock();
+  }
 
-    // Check if is necessary create a Genesis block
-    this.getBlockHeight().then(height=> {
-      if (height === 0) {
+  async checkIsHasGenesisBlock () {
+    const height = await this.getBlockHeight();
+    if (height === 0) {
 
-        const block = new Block({address: '', star: {dec: '', ra: '', story: 'Genesis block'}});
-        
-        this.addBlock(block)
-          .then(block => console.log("Genesis block has been created"))
-          .catch(err => console.log('Error creating Genesis block', err));
-      }
-    });
+      const block = new Block({
+        address: '', 
+        star: {
+          dec: '', 
+          ra: '', 
+          story: stringService.toHex('Genesis block')
+        }
+      });
+      
+      await this.addBlock(block);
+      
+      console.log("Genesis block has been created")
+    }
   }
 
   // Add new block
-  addBlock(block) {
-    return new Promise((resolve, reject) => {
+  async addBlock(block) {
 
-      // TODO: delegate this constraint to out of this function
-      if (!block.body || block.body === '') {
-        reject({message: `Body could not be empty`});
-      }
+    // TODO: delegate this constraint to out of this function
+    if (!block.body || block.body === '') {
+      reject({message: `Body could not be empty`});
+    }
 
-      // Block height
-      const blockHeight = new Promise((resolve, reject) => {
-        this.getBlockHeight()
-          .then(height => {
-            if (height > 0) {
-              block.height = height;
-            }
-            resolve(block);
-          });
-      });
+    // Block height
+    const height = await this.getBlockHeight();
+    
+    if (height > 0) {
+      block.height = height;
+    }
 
-      // previous block hash
-      const previsousBlockHash = new Promise((resolve, reject) => {
-        this.getBlockHeight().then(height => {
-          if (height > 0) {
-            this.getBlock(height - 1)
-              .then(previousBlock => {
-                block.previousBlockHash = previousBlock.hash;
-                resolve(block);
-              });
-          } else {
-            block.previousBlockHash = "";
-            resolve(block);
-          }
-        })
-      })
+    // previous block hash
+    if (height > 0) {
+      const previousBlock = await this.getBlock(height - 1);
+      block.previousBlockHash = previousBlock.hash;
+    } else {
+      block.previousBlockHash = "";
+    }
+     
+    // UTC timestamp
+    block.time = new Date().getTime().toString().slice(0, -3);
+    // Hash
+    block.hash = SHA256(JSON.stringify(block)).toString();
+    // Persist block
+    await db.put(block.height, JSON.stringify(block).toString())
 
-      Promise
-        .all([blockHeight, previsousBlockHash])
-        .then(values => {
-          // UTC timestamp
-          block.time = new Date().getTime().toString().slice(0, -3);
-          // Hash
-          block.hash = SHA256(JSON.stringify(block)).toString();
-          // Persist block
-          return db.put(block.height, JSON.stringify(block).toString())
-        })
-        .then(() => {
-          return db.get(block.height)
-        })
-        .then(block => resolve(block))
-        .catch(err => reject(err));
-    })
+    return await db.get(block.height);
+
   }
 
-  // Get block height
   getBlockHeight() {
     return new Promise((resolve, reject) => {
       let i = 0;
@@ -108,14 +98,17 @@ class BlockchainService {
     });
   }
 
-  // get block by height
-  getBlock(blockHeight) {
+  getBlock(height) {
     return new Promise((resolve, reject) => {
-      db.get(blockHeight)
+      db.get(height)
         .then(block => {
           resolve(JSON.parse(block));
         })
-        .catch(err => reject(new Error("NOT_FOUND")));
+        .catch(() => {
+          const error = Error(`Not found block with height [${height}]`);
+          error.status = 404;
+          reject(error);
+        });
     });
   }
 
@@ -156,25 +149,6 @@ class BlockchainService {
         })
     })
   }
-
-  // getBlockByHeight(height) {
-  //   return new Promise((resolve, reject) => {
-
-  //     const resultBlock = [];
-
-  //     db.createReadStream()
-  //       .on('data', data => {
-  //         let block = JSON.parse(data.value);
-  //         if (block.height === +height) {
-  //           resultBlock.push( block );
-  //         }
-  //       })
-  //       .on('error', err => reject(err))
-  //       .on('close', () => {
-  //         resolve(resultBlock);
-  //       })
-  //   })
-  // }
 
   listAllBlock() {
     db.createReadStream()

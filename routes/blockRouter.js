@@ -11,90 +11,51 @@ const blockchainService = new BlockchainService();
 const stringService = new StringService();
 const jsonSchemaValidator = new JSONSchemaValidator();
 
-const contentBodyIsValid = (body) => {
-    return new Promise( (resolve, reject) => {
-
-        let isValid = true;
-
-        if (!stringService.isASCII(body.star.story)) {
-            isValid = false;
-            reject(new Error('Story needs contain only ASCII characters'));
-        }
-
-        if (stringService.encode(body.star.story).length > 500) {
-            isValid = false;
-            reject(new Error('Story contains more than 500 bytes'));
-        }
-
-        const jsonValidation = jsonSchemaValidator.validate(body);
-
-        if (!jsonValidation.isValid) {
-            isValid = false;
-            reject(new Error(JSON.stringify(jsonValidation.errors)));
-        }
-
-        if (isValid) {
-            resolve(true);
-        }
-    })
-}
-
 router
-        .post('/', (req, res) => {
+        .post('/', async (req, res, next) => {
 
-            const body = req.body;
+            try {
 
-            userService.getGrant(body.address)
-            .then( grant => {
-                
-                if (!grant.access) {
-                    throw new Error('User don\'t have permission');
+                const body = req.body;
+
+                await userService.hasPermission(body.address);
+
+                if (!stringService.isASCII(body.star.story)) {
+                    throw Error('Story needs contain only ASCII characters');
                 }
+        
+                if (stringService.encode(body.star.story).length > 500) {
+                    throw Error('Story contains more than 500 bytes');
+                }
+        
+                const jsonValidation = await jsonSchemaValidator.validate(body);
 
-                return contentBodyIsValid(body);
-            })
-            .then(() => {
+                if (!jsonValidation.isValid) {
+                    throw Error(JSON.stringify(jsonValidation.errors));
+                }
 
                 const block = new Block(body);
-
                 block.body.star.story = stringService.toHex(body.star.story);
 
-                return blockchainService.addBlock(block);
-            })
-            .then( newBlock => {
-
+                const newBlock = await blockchainService.addBlock(block)
                 userService.revoke(body.address);
-                userService.delete(body.address);
 
                 res.status(200).json( JSON.parse(newBlock) );
-            })
-            .catch ( err => {
-
-                if (err.message === 'NOT_FOUND') {
-                    res.status(500).json({message: `The validationWindow is out. User must request validation again`});
-                } else {
-                    res.status(500).json({message: `${err.message}`});
-                }
-
-            })
+        
+            } catch (err) {
+                next(err);
+            }
         })
         
-        .get('/:height', (req, res) => {
-
-            blockchainService.getBlock(req.params.height)
-            .then( block => {
+        .get('/:height', async (req, res, next) => {
+            try {
+                const block = await blockchainService.getBlock(req.params.height);
                 block.body.star.storyDecoded = stringService.fromHex(block.body.star.story);
                 delete block.body.star.story
                 res.json(block);
-            })
-            .catch( err => {
-
-                if (err.message === 'NOT_FOUND') {
-                    res.status(404).json({message: `Block not found with heigth equals ${req.params.height}`})
-                } else {
-                    res.status(500).json({message: `Internal error ${err.message}`});
-                }
-            });
+            } catch (err) {
+                next(err);
+            }
         });
 
 module.exports = router;

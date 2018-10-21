@@ -3,38 +3,37 @@ const level = require('level');
 const db = level('./db-user');
 
 class Grant {
-    constructor (_address, _access) {
+    constructor(_address) {
         this.address = _address;
-        this.access = _access;
     }
 }
 
 class UserService {
 
-    constructor () {
+    constructor() {
     }
 
-    grant(address) {
-        const grant = new Grant(address, true);
-        return db.put(address, JSON.stringify(grant));
+    async grant(address) {
+        const grant = new Grant(address);
+        return await db.put(address, JSON.stringify(grant));
     }
 
-    revoke(address) {
-        return db.put(address, JSON.stringify(new Grant(address, false)));;
+    async revoke(address) {
+        return await db.del(address);
     }
 
-    getGrant(address) {
-        return new Promise((resolve, reject) => {
+    hasPermission(address) {
+        return new Promise( (resolve, reject) => {
             db.get(address)
-              .then(grant => {
-                resolve(JSON.parse(grant));
-              })
-              .catch(err => reject(new Error('NOT_FOUND')));
-          });
-    }
-
-    delete(address) {
-        return db.del(address);
+                .then(grant => {
+                    resolve(JSON.parse(grant));
+                })
+                .catch(err => {
+                    const error = Error(`Address [${address}] don't have permissions to register stars. Needs resquest validation again`);
+                    error.status = 403;
+                    reject(error)
+                });
+        })
     }
 }
 
